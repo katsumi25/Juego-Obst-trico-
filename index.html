@@ -1,0 +1,325 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Obstetra de Guardia 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#0e1a22;--pn:#142530ee;--fg:#e8f1f5;--ac:#2ec4a6;--rd:#e5586b;--yl:#f2c14e}
+*{box-sizing:border-box}[hidden]{display:none!important}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px system-ui,sans-serif;overflow:hidden}
+canvas#c{display:block;width:100%;height:100%}
+#hud{position:fixed;top:env(safe-area-inset-top,0);left:0;right:0;padding:8px 12px;background:#0009;display:flex;gap:14px;flex-wrap:wrap}
+#mm{position:fixed;left:8px;top:44px;border:2px solid var(--ac);background:#0b141ad0;border-radius:6px;max-width:40vw}
+#log{position:fixed;right:8px;bottom:8px;width:min(380px,55vw);max-height:34vh;overflow:auto;background:#000a;border-radius:8px;padding:6px 10px;font-size:13px}
+#log p{margin:4px 0}#tip{position:fixed;bottom:140px;left:50%;transform:translateX(-50%);background:#000b;padding:6px 12px;border-radius:20px}
+#pn{position:fixed;top:44px;right:8px;width:min(430px,96vw);max-height:calc(100% - 60px);overflow:auto;background:var(--pn);border:1px solid var(--ac);border-radius:10px;padding:12px}
+#pn h3{margin:0 0 4px}button{background:#1f4352;color:var(--fg);border:1px solid #3a6b80;border-radius:6px;padding:5px 8px;margin:2px;cursor:pointer;font:inherit}
+button:hover{background:#2b6076}button.tx{border-color:var(--yl)}button.go{background:var(--ac);color:#04231d;font-weight:700}
+.r{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px}.r b{color:var(--ac)}small{opacity:.8}
+#ov{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;padding:12px}
+.card{max-width:560px;background:#142530;border:1px solid var(--ac);border-radius:12px;padding:20px;max-height:92vh;overflow:auto}
+#pad{position:fixed;left:8px;bottom:136px;text-align:center;touch-action:none}#pad button,#eb{width:54px;height:54px;font-size:20px;opacity:.88;touch-action:none;user-select:none}#eb{position:fixed;right:8px;bottom:40vh;border-radius:50%;background:var(--ac);color:#04231d;font-weight:700}#js{position:fixed;left:18px;bottom:26px;width:120px;height:120px;border-radius:50%;background:#fff2;border:2px solid #fff5;touch-action:none}#jk{position:absolute;left:40px;top:40px;width:40px;height:40px;border-radius:50%;background:#fffa;pointer-events:none}#pad{display:none!important}#mp{position:fixed;top:50px;left:50%;transform:translateX(-50%);width:min(520px,94vw);max-height:65vh;overflow:auto;background:var(--pn);border:1px solid var(--ac);border-radius:10px;padding:10px;z-index:5}.ab{position:fixed;width:48px;height:48px;border-radius:50%;opacity:.88;touch-action:none;font-size:18px;padding:0}#jb{right:72px;bottom:40vh}#rb{right:8px;bottom:calc(40vh + 62px)}#cb{right:72px;bottom:calc(40vh + 62px)}</style></head><body>
+<canvas id="c"></canvas>
+<div id="hud"><b id="lv"></b><span id="rk"></span><span>⏱ <b id="tm"></b></span><span>⭐ <b id="sc"></b></span><span>🕑 <b id="ck"></b> <small>Guardia nocturna</small></span><button id="mb">📨 Mensajes <b id="mc"></b></button><button onclick="prof()">⚙ Perfil</button><button onclick="rst()">↺ Reiniciar</button></div>
+<canvas id="mm" width="180" height="120"></canvas><div id="log"></div><div id="tip" hidden></div><div id="pn" hidden></div>
+<div id="mp" hidden><b>📨 Mensajes del personal</b> <button onclick="$('mp').hidden=true">Cerrar</button><div id="ml"></div></div><button class="ab" id="jb">⤒</button><button class="ab" id="rb">🏃</button><button class="ab" id="cb">⬇</button><div id="js"><div id="jk"></div></div><div id="pad"><button data-k="w">▲</button><div><button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button></div></div><button id="eb">E</button>
+<div id="ov"><div class="card" id="ovc"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id),lerp=(a,b,t)=>a+(b-a)*t;
+const VN={fc:80,s:115,d:72,fcf:140,t:36.7,sat:98};
+const INS={bp:'Tensiómetro',sat:'Pulsioxímetro',dop:'Doppler fetal',temp:'Termómetro',tacto:'Tacto vaginal',ctg:'Monitor CTG',eco:'Ecógrafo',lab:'Tira reactiva orina',peso:'Balanza y tallímetro',au:'Cinta métrica (altura uterina)',leo:'Maniobras de Leopold'};
+const TX={iv:'Vía EV + Ringer',o2:'Oxígeno 10 L/min',oxi:'Oxitocina EV',mg:'Sulfato de magnesio',lbl:'Labetalol EV',antib:'Antibiótico EV',antiem:'Antiemético',tranex:'Ác. tranexámico',masaje:'Masaje uterino',mcr:'Maniobra McRoberts',epi:'Episiotomía',parto:'Atender parto',cesarea:'Cesárea (quirófano)',reposo:'Reposo + progesterona',hierro:'Hierro + ácido fólico',vac:'Vacuna dT / influenza',cons:'Consejería y plan de parto',sonda:'Sonda vesical',cort:'Betametasona (madurez pulmonar)',nifed:'Nifedipino',anest:'Analgesia epidural',pinz:'Pinzar y cortar cordón',alumb:'Alumbramiento dirigido'};
+const RANKS=['Interna de Obstetricia','Interna de Obstetricia','Residente R1','Residente R1','Residente R2','Residente R2','Obstetra Asistencial','Obstetra Asistencial','Obstetra de Guardia','Obstetra de Guardia','Jefa de Emergencia Obstétrica','Jefa del Servicio de Obstetricia'];
+const RM={u:{x:-20,z:-11.5,n:'Urgencias / Emergencia obstétrica',c:0xf6d0d0,m:'#e5586b'},p:{x:0,z:-11.5,n:'Sala de Partos',c:0xf3e3f6,m:'#b388eb'},q:{x:20,z:-11.5,n:'Quirófano',c:0xcfe9e4,m:'#2ec4a6'},
+a:{x:-20,z:11.5,n:'Admisión y Triaje',c:0xe9eef2,m:'#8aa'},c:{x:0,z:11.5,n:'Consultorio de Obstetricia',c:0xfdf3d4,m:'#f2c14e'},h:{x:20,z:11.5,n:'Hospitalización',c:0xd8e8fb,m:'#6aa7ee'}};
+const C=[
+{n:'Control prenatal',e:'G1P0 · 28 sem',h:'Sin antecedentes. Control mensual.',s:'Asintomática. Movimientos fetales presentes.',a:{},c:{s:128,d:84},req:['bp','peso','au','leo','dop','lab','hierro','vac','cons'],r:.5,rm:'c'},
+{n:'Hiperémesis gravídica',e:'G2P1 · 9 sem',h:'Vómitos hace 5 días. No tolera líquidos.',s:'Náuseas incesantes, mareo, boca seca, pérdida de 4 kg.',a:{fc:108,s:100,d:62,t:37.2},c:{fc:132,s:82,d:50},req:['bp','temp','iv','antiem'],r:.9,rm:'h'},
+{n:'ITU / pielonefritis',e:'G2P1 · 24 sem',h:'Cistitis previa sin tratar.',s:'Disuria, dolor lumbar, escalofríos y fiebre.',a:{t:38.4,fc:98},c:{t:40,fc:125,s:96,d:58},lab:'Nitritos +, leucocitos +++',req:['temp','lab','antib','iv'],r:.9,rm:'c'},
+{n:'Amenaza de aborto',e:'G3P1 · 10 sem',h:'Un aborto previo.',s:'Sangrado vaginal leve y cólico bajo.',a:{fc:92},c:{fc:120,s:90,d:55},eco:'Saco intrauterino, embrión con latido +, hematoma subcoriónico',req:['eco','dop','reposo'],r:1,rm:'u'},
+{n:'Preeclampsia severa',e:'G1P0 · 35 sem',h:'Madre con hipertensión.',s:'Cefalea intensa, escotomas, edemas, epigastralgia.',a:{s:168,d:108,fc:96},c:{s:205,d:130,sat:93},lab:'Proteínas +++',req:['bp','lab','lbl','mg','sonda','cort'],r:1.1,rm:'u'},
+{n:'Trabajo de parto activo',e:'G2P1 · 39 sem',h:'Embarazo normal.',s:'Contracciones c/3 min, rotura de membranas, siente pujo.',a:{fc:94},c:{fcf:90,fc:112},dil:'8 cm, borrado 100%, cefálico +1, líquido claro',req:['tacto','ctg','anest','parto','pinz','alumb'],r:1,rm:'p'},
+{n:'Hemorragia posparto (atonía)',e:'G4P3 · puerperio inmediato',h:'Multípara, parto prolongado.',s:'Sangrado profuso, útero blando, mareo, palidez.',a:{fc:118,s:92,d:58,sat:96},c:{fc:150,s:62,d:35,sat:90},req:['bp','iv','masaje','oxi','tranex','sonda'],r:1.4,rm:'p'},
+{n:'Eclampsia',e:'G1P0 · 37 sem',h:'Preeclampsia sin control.',s:'Convulsión tónico-clónica, pérdida de conciencia.',a:{s:185,d:120,fc:110,sat:92},c:{s:215,d:135,sat:84,fcf:100},req:['o2','mg','bp','lbl','cesarea'],r:1.4,rm:'u'},
+{n:'Desprendimiento de placenta',e:'G3P2 · 34 sem',h:'Hipertensa crónica, fumadora.',s:'Dolor brusco, útero leñoso, sangrado oscuro.',a:{fc:112,s:100,d:60,fcf:105},c:{fc:140,s:75,d:40,fcf:60},req:['bp','dop','iv','cort','cesarea'],r:1.4,rm:'u'},
+{n:'Placenta previa sangrante',e:'G2P1 · 33 sem',h:'Cesárea previa.',s:'Sangrado rojo vivo, indoloro. ¡Prohibido el tacto vaginal!',a:{fc:106,s:98,d:60},c:{fc:140,s:70,d:40,fcf:90},eco:'Placenta previa total cubriendo el OCI',no:['tacto'],req:['eco','iv','dop','cort','cesarea'],r:1.3,rm:'u'},
+{n:'Distocia de hombros',e:'G2P1 · 40 sem, macrosomía',h:'Diabetes gestacional.',s:'Cabeza fuera, "signo de la tortuga", hombros atascados.',a:{fc:110,fcf:100},c:{fcf:60,fc:130},dil:'Dilatación completa, hombro anterior impactado',req:['mcr','epi','parto'],r:1.8,rm:'p'},
+{n:'Sepsis puerperal',e:'P2 · puerperio día 5',h:'Parto con retención de restos.',s:'Fiebre alta, loquios fétidos, taquicardia, confusión.',a:{t:39.4,fc:122,s:90,d:55,sat:94},c:{t:41,fc:150,s:68,d:38,sat:87},req:['temp','bp','antib','iv','o2'],r:1.5,rm:'h'}];
+const NMS=['María Condori','Lucía Ramos','Carmen Flores','Rosa Huamán','Ana Torres','Julia Mamani','Elena Quispe','Sofía Vargas'];
+const NP=[{n:'Enf. Rosa Quispe',y:14,h:'320 partos, 28 hemorragias posparto, 6 eclampsias'},{n:'Téc. Luis Paredes',y:6,h:'140 vías difíciles, 40 traslados a quirófano'},{n:'Enf. Carla Mendoza',y:9,h:'210 partos, 3 distocias de hombros, 12 desprendimientos'},{n:'Obst. Marta Salas',y:20,h:'600 partos, 35 cesáreas urgentes, 15 sepsis puerperales'}];
+
+// ---------- 3D ----------
+const R=new THREE.WebGLRenderer({canvas:$('c'),antialias:true}),S=new THREE.Scene();S.background=new THREE.Color(0x1c2b35);S.fog=new THREE.Fog(0x1c2b35,40,90);R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;R.toneMapping=THREE.ACESFilmicToneMapping;R.toneMappingExposure=1.15;R.outputEncoding=THREE.sRGBEncoding;R.setPixelRatio(Math.min(2,devicePixelRatio));
+const cam=new THREE.PerspectiveCamera(55,1,.1,200);
+S.add(new THREE.HemisphereLight(0xffffff,0x778899,.9));const dl=new THREE.DirectionalLight(0xfff1dd,.9);dl.position.set(12,30,14);dl.castShadow=true;dl.shadow.mapSize.set(2048,2048);Object.assign(dl.shadow.camera,{left:-38,right:38,top:28,bottom:-28,near:1,far:80});S.add(dl);
+const M=c=>new THREE.MeshStandardMaterial({color:c,roughness:.7,metalness:.05});
+function box(w,h,d,x,y,z,c,g=S){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));m.position.set(x,y,z);g.add(m);return m}
+const col=[];
+function wall(x1,z1,x2,z2){const t=.3;box(Math.abs(x2-x1)+t,3.2,Math.abs(z2-z1)+t,(x1+x2)/2,1.6,(z1+z2)/2,0xeef3f6);col.push([Math.min(x1,x2)-t/2,Math.min(z1,z2)-t/2,Math.max(x1,x2)+t/2,Math.max(z1,z2)+t/2])}
+box(60,.2,40,0,-.1,0,0xb8c2c8);
+function label(t,x,z){const k=document.createElement('canvas');k.width=512;k.height=64;const g=k.getContext('2d');g.fillStyle='#000a';g.fillRect(0,0,512,64);g.fillStyle='#fff';g.font='bold 30px sans-serif';g.textAlign='center';g.fillText(t,256,44);
+const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(k)}));s.scale.set(6,.75,1);s.position.set(x,2.9,z);S.add(s)}
+const TILE=(()=>{const k=document.createElement('canvas');k.width=k.height=128;const g=k.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,128,128);g.strokeStyle='#0003';g.lineWidth=3;g.strokeRect(0,0,128,128);const t=new THREE.CanvasTexture(k);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(10,8.5);return t})();for(const k in RM){const r=RM[k];box(20,.22,17,r.x,0,r.z,r.c).material.map=TILE;label(r.n,r.x,r.z<0?-4.5:4.5);}
+wall(-30,-20,30,-20);wall(-30,20,30,20);wall(-30,-20,-30,20);wall(30,-20,30,20);
+[-10,10].forEach(x=>{wall(x,-20,x,-3);wall(x,3,x,20)});
+[-20,0,20].forEach(cx=>{[-3,3].forEach(z=>{wall(cx-10,z,cx-2.2,z);wall(cx+2.2,z,cx+10,z)})});
+box(3,.9,6,20,.5,-14,0xdddddd);box(1.5,.2,1.5,20,3,-14,0xffffcc);box(3,1,1,0,.5,8,0x8b6b4a);box(3,1,1,-20,.5,8,0x8b6b4a);box(8,.1,1,0,.1,0,0x6aa7ee);
+function person(col,o={}){const g=new THREE.Group();
+const a=(geo,c,x,y,z)=>{const m=new THREE.Mesh(geo,M(c));m.position.set(x,y,z);g.add(m);return m};
+a(new THREE.CylinderGeometry(.13,.12,.85,8),o.pants||0x335,-.15,.43,0);a(new THREE.CylinderGeometry(.13,.12,.85,8),o.pants||0x335,.15,.43,0);
+a(new THREE.CylinderGeometry(.3,.26,.75,10),col,0,1.2,0);a(new THREE.CylinderGeometry(.08,.08,.7,6),col,-.4,1.2,0);a(new THREE.CylinderGeometry(.08,.08,.7,6),col,.4,1.2,0);
+a(new THREE.SphereGeometry(.2,12,10),0xe0b090,0,1.78,0);
+if(o.cap)a(new THREE.SphereGeometry(.22,12,6,0,6.3,0,1.57),o.cap,0,1.82,0);
+if(o.hair)a(new THREE.SphereGeometry(.22,12,6,0,6.3,0,1.9),o.hair,0,1.82,-.02);
+if(o.belly)a(new THREE.SphereGeometry(.3,10,8),col,0,1.1,.22);return g}
+const player=person(0x2ec4a6,{pants:0x1f9d85,coat:1,sleeve:0xffffff,cap:0x1f9d85});S.add(player);player.position.set(0,0,0);
+const arrow=new THREE.Mesh(new THREE.ConeGeometry(.2,.4,8),M(0xf2c14e));arrow.rotation.x=Math.PI;player.add(arrow);
+let dyn=new THREE.Group();S.add(dyn);
+
+// ---------- Estado ----------
+let L=1,score=0,state='menu',tleft=0,T=0,P=[],N=[],open=null;
+try{L=Math.min(12,+localStorage.getItem('og_lv')||1)}catch(e){}
+const keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1;if(e.key.toLowerCase()=='e')interact();if(e.key=='Escape')closeP()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+function log(t,c){const l=$('log'),p=document.createElement('p');p.innerHTML=t;if(c)p.style.color=c;l.appendChild(p);l.scrollTop=1e5}
+function ov(h){$('ov').hidden=false;$('ovc').innerHTML=h}
+function menu(){state='menu';ov(`<h2>🩺 Obstetra de Guardia</h2><p><b>${RANKS[L-1]}</b> — Nivel ${L} de 12</p>
+<p><b>Cómo jugar:</b> mueve a la obstetra con <b>WASD / flechas</b> (o el joystick) y arrastra con el mouse o el dedo para girar la cámara como en un juego de disparos (tipo Free Fire; rueda = zoom, V = vista cercana). Acércate a una paciente y pulsa <b>E</b> para atenderla; también puedes pulsar E junto a una enfermera para escuchar su reporte y consejo.</p>
+<p>Los signos vitales <b>no se ven hasta que usas el equipo</b> (tensiómetro, oxímetro, Doppler, termómetro, CTG, ecógrafo...). Interpreta síntomas y signos, aplica los tratamientos correctos antes de que la paciente se deteriore y luego dala de alta. Los tratamientos erróneos empeoran el cuadro. Tienes tiempo limitado. Cada nivel superado te asciende en el centro de salud.</p>
+<button class="go" onclick="start()">Comenzar nivel ${L}</button>`)}
+function start(){$('ov').hidden=true;S.remove(dyn);dyn=new THREE.Group();S.add(dyn);P=[];N=[];closeP();$('log').innerHTML='';
+const n=1+Math.floor((L-1)/3),ids=[L-1];while(ids.length<n)ids.push(Math.floor(Math.random()*L));const used={};
+ids.forEach((id,i)=>{const c=C[id],r=RM[c.rm],k=(used[c.rm]=(used[c.rm]||0)+1)-1,bx=r.x-6+6*(k%3),bz=r.z+(r.z<0?-3.5:3.5);
+box(1.3,.5,2.6,bx,.4,bz+.1,0xffffff,dyn);box(.8,.2,.5,bx,.75,bz-1,0xdde,dyn);box(.5,1.2,.4,bx+1.4,.6,bz-.8,0x445,dyn);box(.5,.4,.1,bx+1.4,1.4,bz-.6,0x1cff9a,dyn);
+const m=person(0xf3a6c0,{belly:1,hair:0x4a2c1a});m.rotation.x=-Math.PI/2;m.position.set(bx,1,bz+.9);dyn.add(m);box(1,.14,.95,bx,1.2,bz+.5,0x7fc8b8,dyn);
+const nm=person(0x4a90d9,{cap:0xffffff,pants:0xffffff});nm.position.set(bx+2,0,bz+.3);dyn.add(nm);
+P.push({c,name:NMS[(i*3+L)%8],age:18+Math.floor(Math.random()*20),risk:.2+.02*L+Math.random()*.05,tf:0,done:new Set(),meas:{},room:c.rm,x:bx,z:bz,st:'act',m,A:{...VN,...c.a},sayT:2+i*5,fl:0,dx:0,opts:opts(c),vf:{},prof:NP[i%4]});
+N.push({m:nm,x:bx+2,z:bz+.3,p:P[i],pf:NP[i%4],t:Math.random()*6})});
+const cs=person(0x4a90d9,{cap:0xffffff,pants:0xffffff});cs.position.set(-6,0,0);dyn.add(cs);N.push({m:cs,x:-6,z:0,pf:NP[3],t:0,co:1});
+player.position.set(0,0,0);T=0;tleft=90+90*n;state='play';
+log(`<b>Nivel ${L}: ${n} paciente(s).</b> Atiéndelas en el mapa.`,'#2ec4a6')}
+const lowM=(a,b,t)=>lerp(a,b,t);
+function vit(p){const c=p.c,Cr={...p.A,...c.c},r=Math.min(1),t=Math.min(1,p.risk),o={};for(const k in VN){const b=lowM(p.A[k],VN[k],.9*p.tf);o[k]=lowM(b,Cr[k],t)}return o}
+function read(p,id){const v=vit(p),c=p.c,j=x=>Math.round(x+(Math.random()-.5)*2);
+return{bp:`PA ${j(v.s)}/${j(v.d)} mmHg`,sat:`SatO₂ ${Math.min(100,j(v.sat))}% · FC ${j(v.fc)} lpm`,dop:`FCF ${j(v.fcf)} lpm`,temp:`${v.t.toFixed(1)} °C`,tacto:c.dil||'Cuello posterior, cerrado, sin sangrado activo',
+ctg:`FCF ${j(v.fcf)} lpm · ${c.dil?'contracciones c/2-3 min':'sin contracciones regulares'}`,eco:c.eco||'Feto único vivo, placenta fúndica, líquido normal',lab:c.lab||'Tira reactiva sin hallazgos',peso:'Peso 68 kg · Talla 1.58 m · IMC 27',au:'Altura uterina acorde a la edad gestacional',leo:'Situación longitudinal, cefálico, dorso a la izquierda'}[id]}
+function good(p,id){p.done.add(id);p.tf=p.done.size/p.c.req.length;p.risk=Math.max(0,p.risk-.18);score+=40;if(id=='cesarea'||id=='lapa'){p.m.position.set(20,1.25,-13.1);p.room='q';log('Paciente trasladada al quirófano.')}}
+function doAct(id){const p=open;if(!p||p.st!='act')return;const req=p.c.req.includes(id);
+if(INS[id]){p.meas[id]={v:read(p,id),t:T};if(p.c.no&&p.c.no.includes(id)){p.risk+=.3;score-=100;log('⚠ ¡Contraindicado en este cuadro!','#e5586b')}else if(req&&!p.done.has(id))good(p,id)}
+else if(id=='alta'){if(p.done.size<p.c.req.length){log('La paciente aún no está estable para el alta.','#f2c14e');return}
+p.st='alta';p.m.visible=false;(occ[p.r0]||[])[p.slot]=0;score+=100+Math.round((1-p.risk)*100);log(`✔ ${p.name} dada de alta / derivada.`,'#2ec4a6');closeP();solved(p)}
+else if(!p.dx){log('Primero establece el diagnóstico en el panel.','#f2c14e');return}else if(req){if(!p.done.has(id))good(p,id)}else{p.risk+=.12;score-=50;log(`⚠ ${TX[id]} no está indicado y empeora a ${p.name}.`,'#e5586b')}
+vis(p,id);if(open)panel()}
+function status(p){return p.risk<.35?['Estable','#2ec4a6']:p.risk<.6?['Vigilar','#f2c14e']:p.risk<.85?['Grave','#f08a3c']:['CRÍTICO','#e5586b']}
+function panel(){const p=open,c=p.c,[sl,sc]=status(p),st0=$('pn').scrollTop;$('pn').hidden=false;
+$('pn').innerHTML=`<h3>${p.name}, ${p.age} a.</h3><small>${c.e} · ${RM[p.room].n}</small>
+<div class="r"><b>Aspecto general:</b> <span style="color:${sc}">${sl}</span></div><div class="r"><b>Antecedentes:</b> ${c.h}</div><div class="r"><b>Motivo de consulta:</b> ${c.s}</div><hr>
+<div><b>Equipos y exámenes</b></div>${Object.keys(INS).map(k=>{const m=p.meas[k];return`<div class="r"><button data-a="${k}">${INS[k]}</button>${m?`<span>${m.v} <small>(hace ${Math.round(T-m.t)}s)</small></span>`:'<small>—</small>'}</div>`}).join('')}
+<hr><div><b>Diagnóstico</b> ${p.dx?'<span style=color:#2ec4a6>✔ '+c.n+'</span>':''}</div>${p.dx?'':p.opts.map((o,i)=>`<button data-d='${i}'>${o}</button>`).join('')}<hr><div><b>Tratamientos</b>${p.dx?'':' <small>(diagnostica primero)</small>'}</div>${Object.keys(TX).map(k=>`<button class="tx" data-a="${k}">${TX[k]}</button>`).join('')}<hr>
+<button class="go" data-a="alta">Dar de alta / derivar</button><hr><div><b>Evolución (historia clínica)</b></div><small>${(p.notes||[]).slice(-8).map(n=>'<div>'+n+'</div>').join('')}</small><button onclick="closeP()">Cerrar (Esc)</button>`;
+$('pn').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>act(b.dataset.a));$('pn').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>dxPick(+b.dataset.d));$('pn').scrollTop=st0}
+function closeP(){open=null;$('pn').hidden=true}
+function near(arr,d){let b=null,bd=d;arr.forEach(o=>{const q=Math.hypot(o.x-player.position.x,o.z-player.position.z);if(q<bd){bd=q;b=o}});return b}
+function interact(){if(state!='play')return;const pk=window.__pk,nn=window.__nn;window.__pk=window.__nn=null;const p=nn?null:(pk&&Math.hypot(pk.x-player.position.x,pk.z-player.position.z)<5.5?pk:near(P.filter(x=>x.st=='act'),3.8));if(p&&p.st=='act'){open=p;panel();return}
+const n=nn&&Math.hypot(nn.x-player.position.x,nn.z-player.position.z)<5.5?nn:near(N,4);if(!n){log('Acércate más para interactuar.','#f2c14e');return}const pp=n.p&&n.p.st=='act'?n.p:P.filter(x=>x.st=='act').sort((a,b)=>b.risk-a.risk)[0];
+log(`<b>${n.pf.n}</b> (${n.pf.y} años): "He atendido ${n.pf.h}."`,'#6aa7ee');
+if(pp){const nx=pp.c.req.find(k=>!pp.done.has(k));log(`${n.pf.n}: "${pp.name} (${pp.c.e}): ${pp.c.s}${nx?` ¿Y si usamos <i>${INS[nx]||TX[nx]}</i>, doctora?`:' Ya está lista para el alta.'}"`,'#6aa7ee')}}
+function lose(t){state='menu';closeP();ov(`<h2>❌ Nivel fallido</h2><p>${t}</p><button class="go" onclick="start()">Reintentar nivel ${L}</button>`)}
+function win(){const bonus=Math.round(tleft*2);score+=bonus;const old=RANKS[L-1];
+if(L>=12){state='menu';ov(`<h2>🏆 ¡Eres Jefa del Servicio de Obstetricia!</h2><p>Completaste los 12 niveles. Puntaje: ${score}</p><button class="go" onclick="L=1;score=0;menu()">Jugar de nuevo</button>`);return}
+L++;try{localStorage.setItem('og_lv',L)}catch(e){}state='menu';
+ov(`<h2>✅ Nivel superado</h2><p>Bonus de tiempo: +${bonus}. Puntaje: <b>${score}</b></p>${RANKS[L-1]!=old?`<p>🎖 <b>¡Ascenso! Ahora eres ${RANKS[L-1]}.</b></p>`:`<p>Sigues como ${old}.</p>`}<button class="go" onclick="menu()">Siguiente nivel</button>`)}
+function say(p){const n=N.find(x=>x.p==p);if(!n)return;
+if(!p.fl){p.fl=1;log(`<b>${n.pf.n}:</b> "Doctora, ${p.name} (${p.c.e}) en ${RM[p.room].n}. ${p.c.s}"`,'#6aa7ee')}
+else if(p.risk>.8&&p.fl<3){p.fl=3;log(`<b>${n.pf.n}:</b> "¡${p.name} está CRÍTICA, doctora! Pálida, sudorosa, no responde bien."`,'#e5586b')}
+else if(p.risk>.55&&p.fl<2){p.fl=2;log(`<b>${n.pf.n}:</b> "${p.name} está empeorando, doctora. Necesitamos actuar."`,'#f2c14e')}}
+// ---------- Bucle ----------
+const mc=$('mm').getContext('2d');
+function drawMM(){mc.clearRect(0,0,180,120);for(const k in RM){const r=RM[k];mc.fillStyle=r.m+'88';mc.fillRect((r.x-10+30)*3,(r.z<0?0:23)*3+(r.z<0?0:9),60,51)}
+mc.fillStyle='#fff';mc.font='8px sans-serif';for(const k in RM){const r=RM[k];mc.fillText(r.n.split(' ')[0],(r.x-8+30)*3,(r.z+20)*3+(r.z<0?8:2))}
+const d=(x,z,c,s)=>{mc.fillStyle=c;mc.beginPath();mc.arc((x+30)*3,(z+20)*3,s,0,7);mc.fill()};
+N.forEach(n=>d(n.m.position.x,n.m.position.z,'#6aa7ee',3));P.forEach(p=>{if(p.st=='act')d(p.m.position.x,p.m.position.z,status(p)[1],4)});d(player.position.x,player.position.z,'#2ec4a6',5)}
+let last=performance.now(),pnT=0;
+function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/1000);last=now;
+if(state=='play'){T+=dt;tleft-=dt;let ix=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),iz=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0),cy=Math.cos(cyaw),sy=Math.sin(cyaw),dx=ix*cy+iz*sy,dz=-ix*sy+iz*cy;
+if(dx||dz){const l=Math.hypot(dx,dz),sp=(keys.c||crB)?2.5:(keys.shift||runB)?8.5:5,px=player.position.x+dx/l*sp*dt,pz=player.position.z+dz/l*sp*dt;const bl=(x,z)=>x<-29.4||x>29.4||z<-19.4||z>19.4||col.some(b=>x>b[0]-.4&&x<b[2]+.4&&z>b[1]-.4&&z<b[3]+.4);
+if(!bl(px,player.position.z))player.position.x=px;if(!bl(player.position.x,pz))player.position.z=pz;player.rotation.y=Math.atan2(dx,dz)}
+P.forEach(p=>{if(p.st!='act')return;p.risk=Math.max(0,p.risk+(p.tf>=1?-.01*dt:p.c.r*(.0035+.0004*L)*dt*(1-.8*p.tf)));p.sayT-=dt;if(p.sayT<=0){p.sayT=8;say(p)}
+if(p.risk>=1)die(p)});
+
+N.forEach(n=>{n.t+=dt;n.m.position.set(n.x+(n.co?Math.sin(n.t*.5)*8:Math.sin(n.t)*.5),0,n.z+(n.co?0:Math.cos(n.t*.7)*.5))});
+const q=near(P.filter(x=>x.st=='act'),3.2);const tp=$('tip');tp.hidden=!!open||!(q||near(N,3.2));tp.textContent=q?`E: atender a ${q.name}`:'E: hablar con la enfermera';
+pnT-=dt;if(open&&pnT<=0&&!window.__pd){pnT=1;panel()}
+$('tm').textContent=Math.floor(T/60)+':'+String(Math.floor(T%60)).padStart(2,'0')}else $('tip').hidden=true;
+$('lv').textContent='Nivel '+L+' ('+(resolved%5)+'/5)';$('rk').textContent='🎖 '+title();$('sc').textContent=score;
+animate(now,dt);
+{const D=4.4*cdist,cp=Math.cos(cpitch),sx=Math.sin(cyaw),cz=Math.cos(cyaw),tx=player.position.x+cz*.55,tz=player.position.z-sx*.55,ox=sx*cp*D,oy=Math.sin(cpitch)*D,oz=cz*cp*D;let k=1;while(k>.15&&col.some(b=>{const x=tx+ox*k,z=tz+oz*k;return x>b[0]-.25&&x<b[2]+.25&&z>b[1]-.25&&z<b[3]+.25}))k-=.08;cam.position.set(tx+ox*k,1.55+oy*k,tz+oz*k);cam.lookAt(tx-sx*2,1.4,tz-cz*2)}R.render(S,cam);drawMM()}
+document.querySelectorAll('#pad [data-k]').forEach(b=>{const k=b.dataset.k,on=e=>{e.preventDefault();keys[k]=1},off=()=>keys[k]=0;b.addEventListener('pointerdown',on);['pointerup','pointerleave','pointercancel'].forEach(t=>b.addEventListener(t,off))});
+$('eb').addEventListener('pointerdown',e=>{e.preventDefault();interact()});
+const ray=new THREE.Raycaster(),mv=new THREE.Vector2();
+$('c').addEventListener('pointerdown',e=>{window.focus();if(state!='play')return;mv.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(mv,cam);
+for(const h of ray.intersectObjects(dyn.children,true)){let o=h.object;while(o){const p=P.find(x=>x.m===o&&x.st=='act'),n=N.find(x=>x.m===o);if(p){window.__pk=p;interact();return}if(n){window.__nn=n;interact();return}o=o.parent}}});
+function rs(){R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}let cyaw=0,cdist=1,busyT=0,busy=0,dr=null;
+const TXT={bp:'🩺',sat:'🫀',dop:'🔊',temp:'🌡',tacto:'🧤',ctg:'📈',eco:'🖥',lab:'🧪',peso:'⚖',au:'📏',leo:'🤲',iv:'💉',o2:'🫁',oxi:'💧',mg:'💊',lbl:'💊',antib:'💊',antiem:'💊',tranex:'💉',masaje:'🤲',mcr:'🤸',epi:'✂',parto:'👶',cesarea:'🏥',reposo:'🛏',hierro:'💊',vac:'💉',cons:'🗣',sonda:'🧪',cort:'💉',nifed:'💊',anest:'💉',pinz:'✂',alumb:'🤲'};
+function box(w,h,d,x,y,z,c,g=S){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;g.add(m);return m}
+function person(col,o={}){const g=new THREE.Group(),u=g.userData,skin=o.skin||0xd9a982;
+const m=(geo,c,x,y,z,p=g)=>{const e=new THREE.Mesh(geo,M(c));e.position.set(x,y,z);e.castShadow=true;p.add(e);return e};
+const pv=(x,y)=>{const q=new THREE.Group();q.position.set(x,y,0);g.add(q);return q};
+u.ll=pv(-.14,.88);u.rl=pv(.14,.88);u.la=pv(-.4,1.52);u.ra=pv(.4,1.52);
+[u.ll,u.rl].forEach(q=>{m(new THREE.CylinderGeometry(.11,.09,.85,8),o.pants||0x334,0,-.43,0,q);m(new THREE.BoxGeometry(.18,.08,.3),0x222,0,-.87,.06,q)});
+[u.la,u.ra].forEach(q=>{m(new THREE.CylinderGeometry(.07,.06,.62,8),o.sleeve||col,0,-.3,0,q);m(new THREE.SphereGeometry(.065,8,6),skin,0,-.65,0,q)});
+m(new THREE.CylinderGeometry(.27,.22,.7,10),col,0,1.2,0);
+if(o.coat)m(new THREE.CylinderGeometry(.3,.38,.95,12,1,true),0xffffff,0,1,0).material.side=THREE.DoubleSide;
+m(new THREE.CylinderGeometry(.07,.07,.1,6),skin,0,1.58,0);(u.sk=[]).push(m(new THREE.SphereGeometry(.19,14,10),skin,0,1.76,0).material);
+m(new THREE.SphereGeometry(.025,6,6),0x222,-.07,1.79,.17);m(new THREE.SphereGeometry(.025,6,6),0x222,.07,1.79,.17);
+if(o.cap)m(new THREE.SphereGeometry(.205,12,8,0,6.3,0,1.6),o.cap,0,1.8,0);
+if(o.hair)m(new THREE.SphereGeometry(.205,12,8,0,6.3,0,2),o.hair,0,1.8,-.03);
+if(o.belly)u.bl=m(new THREE.SphereGeometry(.3,12,10),col,0,1.12,.22);return g}
+const opts=c=>[c.n].concat(C.map(x=>x.n).filter(n=>n!=c.n).sort(()=>Math.random()-.5).slice(0,3)).sort(()=>Math.random()-.5);
+function dxPick(i){const p=open;if(!p||p.dx)return;if(p.opts[i]==p.c.n){p.dx=1;score+=60;log('✔ Diagnóstico correcto: '+p.c.n,'#2ec4a6')}else{p.risk+=.08;score-=40;log('✖ Ese diagnóstico no explica el cuadro. Revisa los exámenes.','#e5586b')}panel()}
+function act(id){const p=open;if(!p||p.st!='act'||busy)return;if(id=='alta'){doAct(id);return}busy=1;busyT=1.1;player.rotation.y=Math.atan2(p.x-player.position.x,p.z-player.position.z);$('pn').style.opacity=.55;
+setTimeout(()=>{busy=0;$('pn').style.opacity=1;if(p.st=='act'){open=p;doAct(id)}},1100)}
+function pop(x,y,z,t){const k=document.createElement('canvas');k.width=512;k.height=64;const g=k.getContext('2d');g.fillStyle='#000b';g.fillRect(0,0,512,64);g.fillStyle='#fff';g.font='bold 30px sans-serif';g.textAlign='center';g.fillText(t,256,42);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(k)}));s.scale.set(4,.5,1);s.position.set(x,y,z);dyn.add(s);setTimeout(()=>dyn.remove(s),2200)}
+function ln(ax,ay,az,bx,by,bz,c){const A=new THREE.Vector3(ax,ay,az),d=new THREE.Vector3(bx,by,bz).sub(A),m=new THREE.Mesh(new THREE.CylinderGeometry(.015,.015,d.length(),6),M(c));m.position.copy(A.clone().addScaledVector(d,.5));m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());dyn.add(m)}
+function vis(p,id){if(id=='alta')return;p.vf=p.vf||{};const x=p.x,z=p.z,a=(w,h,d,px,py,pz,c)=>box(w,h,d,px,py,pz,c,dyn),cy=(r,h,px,py,pz,c,rx)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,10),M(c));m.position.set(px,py,pz);m.rotation.x=rx||0;m.castShadow=true;dyn.add(m)};
+pop(x,2.7,z-.4,(TXT[id]||'')+' '+(INS[id]||TX[id]));snd(620,.12);(p.notes=p.notes||[]).push(clock()+' '+(INS[id]||TX[id])+(INS[id]&&p.meas[id]?': '+p.meas[id].v:''));if(p.vf[id])return;p.vf[id]=1;
+if(id=='iv'){cy(.03,2.2,x-1.3,1.1,z-.7,0xbbbbbb);a(.35,.5,.12,x-1.3,2.1,z-.7,0x9fd8ff);ln(x-1.3,1.85,z-.7,x-.42,1.05,z-.3,0xddeeff)}
+if(id=='o2'){a(.22,.24,.2,x,1.2,z-.9,0x8fd3ff);cy(.12,1.1,x-1,.55,z-1.3,0x2e8b57);ln(x-1,1.1,z-1.3,x,1.2,z-.9,0x8fd3ff)}
+if(id=='bp')cy(.07,.2,x-.22,.98,z-.3,0xd9622b,1.57);
+if(id=='sat')a(.06,.05,.1,x+.22,.98,z+.05,0x333333);
+if(id=='ctg'){const t=new THREE.Mesh(new THREE.TorusGeometry(.25,.03,8,18),M(0x333333));t.position.set(x,1.06,z-.25);dyn.add(t);a(.14,.05,.14,x,1.3,z-.25,0xeeeeee)}
+if(id=='dop')a(.06,.1,.06,x+.05,1.3,z-.25,0x222222);
+if(id=='sonda'){a(.3,.2,.1,x+.85,.3,z+.5,0xf0d34a);ln(x+.8,.4,z+.5,x,.95,z+.3,0xeeeedd)}
+if(id=='parto'){const b=new THREE.Group();b.position.set(x+.15,1.4,z-.35);const s=new THREE.Mesh(new THREE.SphereGeometry(.12,10,8),M(0xe0a890)),w=new THREE.Mesh(new THREE.CylinderGeometry(.1,.08,.35,8),M(0xff9ec2));w.rotation.x=1.57;w.position.z=.2;b.add(s,w);dyn.add(b)}}
+function animate(now,dt){const mv=state=='play'&&(keys.w||keys.a||keys.s||keys.d||keys.arrowup||keys.arrowdown||keys.arrowleft||keys.arrowright),u=player.userData,ph=now/130,s=mv?Math.sin(ph)*.7:0;
+u.ll.rotation.x=s;u.rl.rotation.x=-s;u.la.rotation.x=-s*.9;u.ra.rotation.x=s*.9;
+if(busyT>0){busyT-=dt;u.la.rotation.x=-1.3+Math.sin(now/90)*.25;u.ra.rotation.x=-1.2+Math.cos(now/90)*.25}
+player.position.y=mv?Math.abs(Math.sin(ph))*.06:0;
+N.forEach(n=>{const q=n.m.userData,w=n.co?.6:.15,s=Math.sin(n.t*(n.co?2:1))*w;q.la.rotation.x=s;q.ra.rotation.x=-s;q.ll.rotation.x=n.co?-s:0;q.rl.rotation.x=n.co?s:0;
+n.m.rotation.y=n.co?(Math.cos(n.t*.5)>0?1.57:-1.57):Math.atan2((n.p?n.p.x:0)-n.m.position.x,(n.p?n.p.z:0)-n.m.position.z)});
+P.forEach(p=>{if(p.m.userData.bl)p.m.userData.bl.scale.setScalar(1+.04*Math.sin(now/(600/(1+p.risk))))});if(state=='play')live(now,dt);$('ck').textContent=clock()}
+function tag(t,x,y,z){const k=document.createElement('canvas');k.width=256;k.height=40;const g=k.getContext('2d');g.fillStyle='#000a';g.fillRect(0,0,256,40);g.fillStyle='#fff';g.font='bold 20px sans-serif';g.textAlign='center';g.fillText(t,128,28);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(k)}));s.scale.set(2.8,.44,1);s.position.set(x,y,z);S.add(s)}
+[[-11.5,-6,1.1,1,.7,0xd64545,0,'Carro de paro'],[-11.5,-6,.5,.35,.4,0x222222,1],[-28.5,-5,.4,1.2,.4,0x2e8b57,0,'Oxígeno'],[-27.8,-5,.4,1.2,.4,0x2e8b57],[-28.5,-18,1.2,1,.6,0xffffff,0,'Lavamanos'],[-13,-18.5,1.2,.9,.6,0xc9d1d6,0,'Instrumental'],
+[6,-5,1,.9,.7,0xbfe3ff,0,'Cuna calefactora'],[0,-15,.8,.1,.8,0xfff6c0,2.4,'Lámpara cialítica'],[8.5,-18.5,1.2,.9,.6,0xc9d1d6,0,'Mesa de parto'],[-9.4,-8,.5,1.8,2,0xf2f5f7,0,'Medicamentos'],
+[20,-14,1.4,.12,1.4,0xffffff,2.6,'Lámpara quirúrgica'],[24.5,-14,.8,1.4,.7,0x2b6a8a,0,'Anestesia'],[15.5,-14,1.4,.9,.8,0xc9d1d6,0,'Instrumental quirúrgico'],[20,-19,3,.9,.5,0xffffff,0,'Lavado quirúrgico'],
+[-22,6,4,1,.8,0x8b6b4a,0,'Admisión'],[-14,9,.6,.12,.6,0x333333,0,'Balanza triaje'],[-13,9,.2,1.8,.2,0xd0d6da],[-14,16,1.2,.5,2.4,0xffffff,0,'Camilla de triaje'],
+[0,8,.5,.35,.1,0x111111,1],[-6,16,1.3,.6,2.2,0xf0d8e8,0,'Camilla ginecológica'],[6,6,.7,.12,.7,0x333333,0,'Balanza y tallímetro'],[6.6,6,.2,1.9,.2,0xd0d6da],[8.5,15,1,1.4,.8,0xffffff,0,'Vacunas'],[9.3,9,.5,2,2.4,0xe9dfc9,0,'Hierro / ác. fólico'],[3,16.5,.8,1.3,.7,0x2b3a4a,0,'Ecógrafo'],
+[28,6,2.5,1,.8,0x8b6b4a,0,'Enfermería'],[12,6,.8,.9,.6,0xdddddd,0,'Carro de curaciones']].forEach(([x,z,w,h,d,c,y0,t])=>{box(w,h,d,x,(y0||0)+h/2,z,c);if(!y0)col.push([x-w/2,z-d/2,x+w/2,z+d/2]);if(t)tag(t,x,(y0||0)+h+.5,z)});
+[9,11,13,15,17].forEach(z=>box(.7,.5,.7,-28.5,.25,z,0x3b6ea5));tag('Sala de espera',-28.5,1.6,13);
+$('c').style.touchAction='none';$('c').addEventListener('pointerdown',e=>{dr=e.clientX;window.__dy=e.clientY});addEventListener('pointerup',()=>dr=null);$('c').addEventListener('pointermove',e=>{if(e.buttons&1&&dr!==null){cyaw-=(e.clientX-dr)*.006;dr=e.clientX;cpitch=Math.max(-.05,Math.min(1,cpitch+(e.clientY-(window.__dy||e.clientY))*.004))}window.__dy=e.clientY});$('c').addEventListener('wheel',e=>{cdist=Math.max(.6,Math.min(1.6,cdist+e.deltaY*.001))});
+let AC=null;
+const clock=()=>{const m=Math.floor(130+T/3);return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+function snd(f,d,v=.05,ty='sine'){if(!AC)return;try{const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;o.type=ty;o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(t+d)}catch(e){}}
+addEventListener('pointerdown',()=>{if(!AC)try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}if(AC&&AC.state=='suspended')AC.resume()});
+addEventListener('keydown',e=>{if(AC&&AC.state=='suspended')AC.resume();if(e.key=='v')cdist=cdist>.8?.55:1});
+$('pn').addEventListener('pointerdown',()=>window.__pd=1);addEventListener('pointerup',()=>setTimeout(()=>window.__pd=0,60));
+function mkMon(p){const k=document.createElement('canvas');k.width=256;k.height=176;const t=new THREE.CanvasTexture(k);box(.95,.68,.08,p.x+1.4,1.9,p.z-.55,0x1a1a1a,dyn);
+const m=new THREE.Mesh(new THREE.PlaneGeometry(.85,.58),new THREE.MeshBasicMaterial({map:t}));m.position.set(p.x+1.4,1.9,p.z-.505);const ky=p.x+','+p.z;if(MM[ky])dyn.remove(MM[ky]);MM[ky]=m;dyn.add(m);return{t,g:k.getContext('2d')}}
+function drawMon(p,v,now){const g=p.mon.g,vf=p.vf||{};g.fillStyle='#050a0a';g.fillRect(0,0,256,176);
+if(!(vf.sat||vf.bp||vf.ctg||vf.dop||vf.temp)){g.fillStyle='#456';g.font='16px monospace';g.fillText('SIN SENSORES',70,90)}else{
+if(vf.sat){g.strokeStyle='#33ff66';g.lineWidth=2;g.beginPath();for(let x=0;x<256;x+=2){const ph=((now/1000)*v.fc/60+x/90)%1,y=60-(ph<.06?28*Math.sin(ph/.06*3.14):ph>.2&&ph<.32?7*Math.sin((ph-.2)/.12*3.14):0);x?g.lineTo(x,y):g.moveTo(x,y)}g.stroke();g.fillStyle='#33ff66';g.font='bold 26px monospace';g.fillText('FC '+Math.round(v.fc),6,100);g.fillStyle='#4fd8ff';g.fillText('SpO2 '+Math.round(v.sat),6,130)}
+if(vf.bp){g.fillStyle='#ffd84a';g.font='bold 20px monospace';g.fillText('PA '+Math.round(v.s)+'/'+Math.round(v.d),130,100)}
+if(vf.ctg||vf.dop){g.fillStyle='#ff8ac2';g.font='bold 20px monospace';g.fillText('FCF '+Math.round(v.fcf),130,128)}
+if(vf.temp){g.fillStyle='#fff';g.font='bold 20px monospace';g.fillText(v.t.toFixed(1)+' C',130,156)}}
+if(p.risk>.8&&Math.floor(now/400)%2){g.strokeStyle='#f33';g.lineWidth=6;g.strokeRect(0,0,256,176)}p.mon.t.needsUpdate=true}
+function live(now,dt){P.forEach(p=>{if(p.st!='act')return;const v=vit(p),d=Math.hypot(p.x-player.position.x,p.z-player.position.z),vf=p.vf||{},sk=p.m.userData.sk;
+if(sk)sk[0].color.set(0xb9bdbf).lerp(new THREE.Color(0x8fa3b8),Math.min(1,p.risk));
+if(!p.mon)p.mon=mkMon(p);if(now-(p.mt||0)>120){p.mt=now;drawMon(p,v,now)}
+if(vf.sat||vf.ctg||vf.dop){p.bt=(p.bt||0)-dt;if(p.bt<=0){p.bt=60/Math.max(40,v.fc);if(d<16)snd(v.sat<92?650:900,.07)}}
+if(p.risk>.8){p.al=(p.al||0)-dt;if(p.al<=0){p.al=1.3;if(d<22){snd(1200,.14,.05,'square');setTimeout(()=>snd(950,.14,.05,'square'),170)}}}})}
+for(const k in RM){const r=RM[k],l=new THREE.PointLight(0xfff0dd,.6,20);l.position.set(r.x,3.4,r.z);S.add(l)}
+[-20,0,20].forEach(cx=>[-3,3].forEach(z=>{box(4.4,.3,.35,cx,2.45,z,0x9fb4c0);box(.25,2.6,.4,cx-2.2,1.3,z,0x9fb4c0);box(.25,2.6,.4,cx+2.2,1.3,z,0x9fb4c0)}));
+const CM=new THREE.MeshStandardMaterial({color:0x7fc3d4,transparent:true,opacity:.4,side:THREE.DoubleSide});
+[['u',-15],['h',15]].forEach(([k,z])=>[-3,3].forEach(o=>{const m=new THREE.Mesh(new THREE.BoxGeometry(.05,2.1,3.4),CM);m.position.set(RM[k].x+o,1.3,z);S.add(m)}));
+let cpitch=.3;cam.fov=68;cam.updateProjectionMatrix();
+const ce=new THREE.Mesh(new THREE.PlaneGeometry(60,40),new THREE.MeshStandardMaterial({color:0xf4f7f9,roughness:.9}));ce.rotation.x=Math.PI/2;ce.position.y=3.2;S.add(ce);
+[-25,-15,-5,5,15,25].forEach(x=>[-11.5,0,11.5].forEach(z=>{const m=new THREE.Mesh(new THREE.BoxGeometry(2.2,.05,.6),new THREE.MeshBasicMaterial({color:0xffffff}));m.position.set(x,3.17,z);S.add(m)}));
+(()=>{const js=$('js'),jk=$('jk');let id=null;const set=e=>{const r=js.getBoundingClientRect();let x=e.clientX-r.left-60,y=e.clientY-r.top-60;const l=Math.hypot(x,y);if(l>50){x*=50/l;y*=50/l}jk.style.left=40+x+'px';jk.style.top=40+y+'px';keys.d=x>15;keys.a=x<-15;keys.s=y>15;keys.w=y<-15};
+js.addEventListener('pointerdown',e=>{id=e.pointerId;js.setPointerCapture(id);set(e)});js.addEventListener('pointermove',e=>{if(e.pointerId==id)set(e)});
+const end=()=>{id=null;jk.style.left=jk.style.top='40px';keys.d=keys.a=keys.s=keys.w=false};js.addEventListener('pointerup',end);js.addEventListener('pointercancel',end)})();
+let occ={},BD={},NS={},MM={},TOT=1,SP=0,nextT=0,gap=40,runB=false,crB=false,jmp=false,pj=0,pyv=0,unread=0;const H=[];
+TX.misop='Misoprostol';TX.lapa='Laparotomía de emergencia';TXT.misop='💊';TXT.lapa='🏥';
+C.push({n:'Anemia gestacional',e:'G2P1 · 30 sem',h:'Dieta pobre en hierro.',s:'Cansancio, palidez de mucosas, mareos al levantarse.',a:{fc:96,sat:96,s:105,d:65},c:{fc:118,sat:93,s:92,d:55},lab:'Hemoglobina 8.1 g/dL, ferritina baja',req:['bp','sat','lab','hierro','cons'],r:.5,rm:'c',lv:1},
+{n:'Diabetes gestacional',e:'G2P1 · 27 sem',h:'Madre diabética, sobrepeso.',s:'Mucha sed, orina frecuente, tamizaje de glucosa alterado.',a:{fc:92,s:130,d:82,fcf:150},c:{fc:110,s:160,d:100,fcf:170},lab:'Glucosa en ayunas 118; PTOG 190 a las 2 h',req:['bp','lab','dop','eco','cons'],r:.6,rm:'c',lv:2},
+{n:'Mastitis puerperal',e:'P1 · puerperio día 10',h:'Lactancia exclusiva, grietas en el pezón.',s:'Mama derecha roja, dura y dolorosa, fiebre y malestar.',a:{t:38.6,fc:96},c:{t:40,fc:118,s:100,d:62},req:['temp','antib','cons'],r:.8,rm:'h',lv:3},
+{n:'Rotura prematura de membranas',e:'G2P1 · 34 sem',h:'Embarazo controlado.',s:'Salió líquido claro hace 8 horas, sin contracciones.',a:{fc:92,fcf:158,t:37.6},c:{t:39,fc:120,fcf:185},eco:'ILA 3 cm: oligohidramnios',req:['eco','temp','ctg','antib','cort'],r:1,rm:'u',lv:4},
+{n:'Aborto incompleto',e:'G3P1 · 11 sem',h:'Un aborto previo.',s:'Sangrado con coágulos y cólicos intensos tras expulsar tejido.',a:{fc:104,s:100,d:62},c:{fc:135,s:75,d:42},dil:'Cuello abierto, restos en el canal',eco:'Restos ovulares intrauterinos',req:['bp','eco','iv','misop','antib'],r:1.3,rm:'u',lv:5},
+{n:'Embarazo ectópico roto',e:'G2P0 · 8 sem de amenorrea',h:'Antecedente de EPI.',s:'Dolor abdominal súbito, mareo, sudor frío, shock.',a:{fc:122,s:88,d:52,sat:95},c:{fc:155,s:60,d:30,sat:88},eco:'Líquido libre en Douglas, útero vacío',req:['bp','eco','iv','o2','lapa'],r:1.9,rm:'u',lv:8},
+{n:'Prolapso de cordón',e:'G3P2 · 36 sem',h:'Rotura de membranas hace 1 hora.',s:'Se ve el cordón en la vagina y el bebé baja de latidos.',a:{fcf:95,fc:100},c:{fcf:50,fc:125},dil:'Cordón pulsatil prolapsado, 6 cm',req:['tacto','dop','mcr','cesarea'],r:2,rm:'p',lv:10});
+function log(t,c){H.push([clock()+' '+t,c||'#e8f1f5']);const l=$('log'),p=document.createElement('p');p.innerHTML=t;if(c)p.style.color=c;l.appendChild(p);while(l.children.length>4)l.removeChild(l.firstChild);l.scrollTop=1e5;if($('mp').hidden)unread++;else drawMsgs();$('mc').textContent=unread?'('+unread+')':''}
+function drawMsgs(){$('ml').innerHTML=H.slice().reverse().map(h=>`<p style='border-left:4px solid ${h[1]};padding-left:6px;margin:6px 0'>${h[0]}</p>`).join('')}
+$('mb').onclick=()=>{const m=$('mp');m.hidden=!m.hidden;if(!m.hidden){unread=0;$('mc').textContent='';drawMsgs()}};addEventListener('keydown',e=>{if(e.key=='m'&&e.target.tagName!='INPUT')$('mb').click()});
+$('jb').addEventListener('pointerdown',e=>{e.preventDefault();jmp=true});$('rb').addEventListener('pointerdown',e=>{e.preventDefault();runB=!runB;$('rb').style.background=runB?'#2ec4a6':''});$('cb').addEventListener('pointerdown',e=>{e.preventDefault();crB=!crB;$('cb').style.background=crB?'#2ec4a6':''});
+function person(col,o={}){const g=new THREE.Group(),u=g.userData,sk=o.skin||0xb9bdbf,jn=0x7a8085,pa=o.pants||0x334455;
+const m=(geo,c,x,y,z,p=g)=>{const e=new THREE.Mesh(geo,M(c));e.position.set(x,y,z);e.castShadow=true;p.add(e);return e};
+const pv=(p,x,y)=>{const q=new THREE.Group();q.position.set(x,y,0);p.add(q);return q};
+u.ll=pv(g,-.1,.95);u.rl=pv(g,.1,.95);
+[u.ll,u.rl].forEach((q,i)=>{m(new THREE.CylinderGeometry(.075,.06,.46,8),pa,0,-.23,0,q);const k=pv(q,0,-.46);m(new THREE.SphereGeometry(.06,8,6),pa,0,0,0,k);m(new THREE.CylinderGeometry(.058,.04,.44,8),pa,0,-.22,0,k);m(new THREE.BoxGeometry(.09,.06,.22),o.shoe||0xf2f2f2,0,-.46,.05,k);i?u.rk=k:u.lk=k});
+m(new THREE.SphereGeometry(.14,10,8),pa,0,.98,0).scale.y=.8;m(new THREE.CylinderGeometry(.17,.12,.52,10),col,0,1.26,0);
+u.la=pv(g,-.23,1.48);u.ra=pv(g,.23,1.48);
+[u.la,u.ra].forEach((q,i)=>{m(new THREE.SphereGeometry(.05,8,6),jn,0,0,0,q);m(new THREE.CylinderGeometry(.045,.04,.3,8),o.sleeve||col,0,-.16,0,q);const e=pv(q,0,-.32);m(new THREE.SphereGeometry(.04,8,6),jn,0,0,0,e);m(new THREE.CylinderGeometry(.036,.028,.27,8),sk,0,-.14,0,e);m(new THREE.SphereGeometry(.04,8,6),sk,0,-.29,0,e);i?u.re=e:u.le=e});
+if(o.coat){m(new THREE.CylinderGeometry(.2,.3,.78,14,1,true),0xffffff,0,1.12,0).material.side=THREE.DoubleSide;m(new THREE.TorusGeometry(.1,.01,6,14),0x222222,0,1.5,.04).rotation.x=1.57}
+m(new THREE.CylinderGeometry(.04,.045,.09,6),sk,0,1.56,0);const h=m(new THREE.SphereGeometry(.105,14,10),sk,0,1.68,0);h.scale.y=1.2;u.sk=[h.material];
+m(new THREE.SphereGeometry(.014,6,6),0x222233,-.04,1.7,.095);m(new THREE.SphereGeometry(.014,6,6),0x222233,.04,1.7,.095);
+if(o.cap)m(new THREE.SphereGeometry(.11,12,8,0,6.3,0,1.6),o.cap,0,1.72,0);
+if(o.belly)u.bl=m(new THREE.SphereGeometry(.2,12,10),col,0,1.15,.13);return g}
+function spawn(){if(SP>=TOT||P.filter(x=>x.st=='act').length>=Math.min(12,2+L))return;const pool=C.filter((c,i)=>(c.lv||i+1)<=L),c=SP==0?C[L-1]:pool[Math.floor(Math.pow(Math.random(),.7)*pool.length)];
+let rm=c.rm,ks=rm=='a'?[0,1]:[0,1,2],o=occ[rm]=occ[rm]||[],k=ks.find(i=>!o[i]);if(k==null){rm='a';ks=[0,1];o=occ.a=occ.a||[];k=ks.find(i=>!o[i]);if(k==null)return}
+o[k]=1;const r=RM[rm],bx=r.x-6+6*k,bz=r.z+(r.z<0?-3.5:3.5),id=rm+k,i=SP++;
+if(!BD[id]){BD[id]=1;box(1.3,.5,2.6,bx,.4,bz+.1,0xffffff,dyn);box(.8,.2,.5,bx,.75,bz-1,0xdde4ee,dyn);box(.5,1.2,.4,bx+1.4,.6,bz-.8,0x445566,dyn)}
+const m=person(0xf3a6c0,{belly:1,pants:0xf3a6c0});m.rotation.x=-Math.PI/2;m.position.set(bx,.92,bz+.9);dyn.add(m);box(1,.12,.95,bx,1.1,bz+.5,0x7fc8b8,dyn);
+const p={c,name:NMS[(i*3+L+Math.floor(Math.random()*8))%8],age:18+Math.floor(Math.random()*20),risk:.2+.02*L+Math.random()*.05,tf:0,done:new Set(),meas:{},room:rm,r0:rm,slot:k,x:bx,z:bz,st:'act',m,A:{...VN,...c.a},sayT:2,fl:0,dx:0,opts:opts(c),vf:{}};P.push(p);
+let n=NS[id];if(!n){const nm=person(0x4a90d9,{cap:0xffffff,pants:0x3a78bf});nm.position.set(bx+2,0,bz+.3);dyn.add(nm);n=NS[id]={m:nm,x:bx+2,z:bz+.3,t:Math.random()*6};N.push(n)}n.p=p;n.pf=NP[i%4];p.prof=n.pf;
+snd(520,.15);log(`<b>Admisión:</b> ingresa ${p.name}, ${p.age} a. (${c.e}) → ${RM[rm].n}.`,'#8fd3ff')}
+function start(){$('ov').hidden=true;S.remove(dyn);dyn=new THREE.Group();S.add(dyn);P=[];N=[];closeP();$('log').innerHTML='';H.length=0;unread=0;occ={};BD={};NS={};MM={};
+TOT=Math.min(14,3+L);SP=0;gap=Math.max(14,58-4*L);nextT=gap;
+const cs=person(0x4a90d9,{cap:0xffffff,pants:0x3a78bf});cs.position.set(-6,0,0);dyn.add(cs);N.push({m:cs,x:-6,z:0,pf:NP[3],t:0,co:1});
+player.position.set(0,0,0);T=0;tleft=140+50*TOT;state='play';log(`<b>Nivel ${L}:</b> llegarán ${TOT} pacientes durante la guardia, de leves a graves. Prioriza por gravedad.`,'#2ec4a6');spawn();spawn()}
+function animate(now,dt){const u=player.userData,mvK=keys.w||keys.a||keys.s||keys.d||keys.arrowup||keys.arrowdown||keys.arrowleft||keys.arrowright,mv=state=='play'&&mvK,run=mv&&(keys.shift||runB),cr=keys.c||crB,ph=now/(run?85:125),sw=mv?(run?1:.65):0,s=Math.sin(ph)*sw;
+if((keys[' ']||jmp)&&pj<=.001&&state=='play'){pyv=5.2}jmp=false;pyv-=15*dt;pj+=pyv*dt;if(pj<=0){pj=0;pyv=0}const air=pj>.02;
+u.ll.rotation.x=air?.5:cr?-.9:s;u.rl.rotation.x=air?-.3:cr?-.9:-s;u.lk.rotation.x=air?1:cr?1.6:Math.max(0,s)*(run?1.6:1.1);u.rk.rotation.x=air?.5:cr?1.6:Math.max(0,-s)*(run?1.6:1.1);
+u.la.rotation.x=-s*(run?1.1:.8);u.ra.rotation.x=s*(run?1.1:.8);u.le.rotation.x=-(run?.9:.25)-Math.max(0,-s)*.3;u.re.rotation.x=-(run?.9:.25)-Math.max(0,s)*.3;
+if(busyT>0){busyT-=dt;u.la.rotation.x=-1.3+Math.sin(now/90)*.25;u.ra.rotation.x=-1.2+Math.cos(now/90)*.25;u.le.rotation.x=u.re.rotation.x=-.5}
+player.position.y=pj+(cr&&!air?-.3:0)+(mv&&!air?Math.abs(Math.sin(ph))*.05:0);
+N.forEach(n=>{const q=n.m.userData,w=n.co?.7:.12,s=Math.sin(n.t*(n.co?2:1))*w;q.la.rotation.x=s;q.ra.rotation.x=-s;q.ll.rotation.x=n.co?-s:0;q.rl.rotation.x=n.co?s:0;q.lk.rotation.x=n.co?Math.max(0,s):0;q.rk.rotation.x=n.co?Math.max(0,-s):0;q.le.rotation.x=q.re.rotation.x=n.co?-.5:-.2;
+n.m.rotation.y=n.co?(Math.cos(n.t*.5)>0?1.57:-1.57):Math.atan2((n.p?n.p.x:0)-n.m.position.x,(n.p?n.p.z:0)-n.m.position.z)});
+P.forEach(p=>{const b=p.m.userData.bl;if(b)b.scale.setScalar(1+.05*Math.sin(now/(600/(1+p.risk))))});
+if(state=='play'){nextT-=dt;if(SP<TOT&&(nextT<=0||P.every(x=>x.st!='act'))){nextT=gap*(.7+Math.random()*.6);spawn()}live(now,dt)}
+$('ck').textContent=clock()+' · '+P.filter(x=>x.st=='alta').length+'/'+TOT+' alta'}
+let resolved=0,deaths=0,pname='Elena',gender='f',lastRank=0;
+const RP=[0,300,700,1200,1800,2600,3500,4600,6000,7800,10000,13000],rankIdx=()=>{let i=0;RP.forEach((v,j)=>{if(score>=v)i=j});return i};
+function title(){let r=RANKS[rankIdx()];if(gender=='m')r=r.replace('Interna','Interno').replace('Jefa','Jefe');if(gender=='x')r=r.replace('Interna','Interno/a').replace('Jefa','Jefe/a');return(gender=='m'?'Dr. ':gender=='x'?'Dr./Dra. ':'Dra. ')+pname+' — '+r}
+(function(){try{const s=JSON.parse(localStorage.getItem('og2'));if(s){score=s.score|0;resolved=s.resolved|0;pname=s.pname||pname;gender=s.gender||'f'}}catch(e){}L=Math.min(12,1+Math.floor(resolved/5));lastRank=rankIdx()})();
+function save(){try{localStorage.setItem('og2',JSON.stringify({score,resolved,pname,gender}))}catch(e){}}
+TX.antif='Clotrimazol vaginal';TX.legra='Aspiración uterina (AMEU)';TX.sutura='Sutura de desgarro';TXT.antif='💊';TXT.legra='🏥';TXT.sutura='🪡';
+C.push({n:'Infección vaginal (candidiasis)',e:'G1P0 · 22 sem',h:'Uso reciente de antibióticos.',s:'Flujo blanco grumoso, picazón intensa y ardor.',a:{},c:{t:37.8},lab:'pH 4.5, hifas y esporas en fresco',req:['temp','lab','antif','cons'],r:.5,rm:'c',lv:1},
+{n:'Hipertensión gestacional',e:'G1P0 · 36 sem',h:'Sin hipertensión previa.',s:'PA elevada en dos controles, sin síntomas de alarma.',a:{s:146,d:96},c:{s:172,d:112,fc:96},lab:'Proteinuria negativa',req:['bp','lab','dop','cons'],r:.7,rm:'c',lv:2},
+{n:'Embarazo postérmino',e:'G2P1 · 41+4 sem',h:'Fecha probable de parto confirmada.',s:'Pasó la fecha, movimientos fetales más débiles.',a:{fcf:128},c:{fcf:100,fc:98},eco:'ILA 5 cm, placenta grado III',dil:'1 cm, cuello blando',req:['ctg','eco','tacto','oxi'],r:.9,rm:'p',lv:3},
+{n:'Mola hidatiforme',e:'G1P0 · 12 sem',h:'Amenorrea y náuseas intensas.',s:'Sangrado oscuro, útero mayor que la amenorrea, vómitos.',a:{fc:100,s:150,d:95},c:{fc:125,s:170,d:108},eco:'Imagen en copos de nieve',lab:'β-hCG muy elevada',req:['bp','eco','lab','iv','legra'],r:1.1,rm:'u',lv:6},
+{n:'Parto pretérmino',e:'G2P1 · 32 sem',h:'Infección urinaria previa.',s:'Contracciones regulares dolorosas, cuello cambiando.',a:{fc:100,fcf:160},c:{fcf:185,fc:125},dil:'4 cm, borrado 70%',req:['tacto','ctg','cort','nifed','mg'],r:1.4,rm:'u',lv:6},
+{n:'Corioamnionitis',e:'G1P0 · 38 sem · rotura 20 h',h:'Rotura prolongada de membranas.',s:'Fiebre, líquido fétido, útero doloroso, taquicardia fetal.',a:{t:38.8,fc:112,fcf:175},c:{t:40.2,fc:132,fcf:195,s:95,d:58},req:['temp','ctg','antib','iv','oxi'],r:1.4,rm:'p',lv:7},
+{n:'Retención de placenta',e:'G3P2 · posparto 40 min',h:'Parto sin complicaciones.',s:'La placenta no sale y hay sangrado continuo.',a:{fc:112,s:96,d:60},c:{fc:145,s:70,d:40},req:['bp','iv','oxi','masaje','alumb'],r:1.6,rm:'p',lv:8},
+{n:'Desgarro del canal de parto',e:'G1P0 · posparto inmediato',h:'Parto instrumentado, bebé macrosómico.',s:'Sangrado rojo vivo continuo con útero bien contraído.',a:{fc:108,s:98,d:62},c:{fc:140,s:72,d:42},req:['bp','iv','anest','sutura'],r:1.5,rm:'p',lv:9},
+{n:'Presentación podálica en trabajo de parto',e:'G1P0 · 39 sem',h:'No se logró versión externa.',s:'Contracciones fuertes; se palpan nalgas.',a:{fc:98},c:{fcf:90,fc:120},dil:'6 cm, presentación podálica',req:['tacto','ctg','anest','cesarea'],r:1.2,rm:'p',lv:9},
+{n:'Inversión uterina',e:'G4P3 · alumbramiento',h:'Tracción del cordón y atonia.',s:'Dolor intenso, masa que sale por vagina, shock.',a:{fc:130,s:78,d:45,sat:93},c:{fc:160,s:55,d:30,sat:85},req:['bp','iv','o2','anest','masaje'],r:2,rm:'p',lv:11},
+{n:'Síndrome HELLP',e:'G1P0 · 33 sem',h:'Preeclampsia en tratamiento.',s:'Dolor en hipocondrio derecho, náuseas, equimosis.',a:{s:178,d:112,fc:100},c:{s:210,d:132,sat:92},lab:'Plaquetas 62 000, TGO 210, LDH 800',req:['bp','lab','mg','lbl','cort','cesarea'],r:1.7,rm:'u',lv:12},
+{n:'Rotura uterina',e:'G3P1 · 38 sem · cesarea previa',h:'Una cesarea hace 2 años.',s:'Dolor súbito, cesaron las contracciones, sangrado, FCF baja.',a:{fc:122,s:92,d:55,fcf:80},c:{fc:155,s:60,d:30,fcf:50},req:['bp','dop','iv','o2','lapa'],r:2,rm:'u',lv:12});
+function skinP(){while(player.children.length)player.remove(player.children[0]);const f=gender=='f',g=person(f?0x2ec4a6:0x1f7f95,{pants:f?0x1f9d85:0x17596a,coat:1,sleeve:0xffffff,cap:f?0x1f9d85:0x17596a});
+if(f){const t=new THREE.Mesh(new THREE.CylinderGeometry(.03,.02,.3,6),M(0x3b2416));t.position.set(0,1.62,-.14);t.rotation.x=-.4;g.add(t)}
+g.children.slice().forEach(c=>player.add(c));player.add(arrow);player.userData=g.userData;const k=gender=='m'?1.08:1;player.scale.set(k,k*.97,k)}
+function apply(){pname=($('nm').value||'Elena').trim().slice(0,18);gender=$('gd').value;skinP();save()}
+function menu(){prof()}
+function prof(){const was=state=='play';state='menu';ov(`<h2>🩺 Obstetra de Guardia</h2><p>Nombre: <input id='nm' value='${pname}' maxlength='18' style='padding:6px'> Género: <select id='gd' style='padding:6px'><option value='f'>Mujer</option><option value='m'>Hombre</option><option value='x'>Otro / neutro</option></select></p>
+<p><b>${title()}</b><br>Nivel ${L} · ${score} puntos · ${resolved} casos resueltos (${resolved%5}/5 para el siguiente nivel)</p>
+<p><b>Controles:</b> WASD mover · Shift correr · Espacio saltar · C agacharte · E atender · M mensajes · arrastra para girar la cámara.</p>
+<p>Cada <b>5 casos resueltos</b> subes de nivel. Cada paciente que muere te <b>resta 150 puntos</b>, y tus puntos determinan tu puesto (puedes ascender o descender). Con 5 muertes en una guardia termina el turno. Los signos vitales solo se ven al usar el equipo; primero diagnostica y luego trata.</p>
+${was?`<button class='go' onclick='resume()'>Continuar</button>`:`<button class='go' onclick='begin()'>Comenzar guardia</button>`}<button onclick='rst()'>↺ Reiniciar progreso</button>`);$('gd').value=gender}
+function resume(){apply();$('ov').hidden=true;state='play'}
+function begin(){apply();start()}
+function rst(){if(!confirm('¿Reiniciar todo el progreso (puntos, nivel y puesto)?'))return;resolved=0;score=0;deaths=0;L=1;lastRank=0;save();state='menu';P.forEach(p=>p.st='alta');prof()}
+function solved(p){resolved++;const n=Math.min(12,1+Math.floor(resolved/5));if(n>L){L=n;gap=Math.max(14,58-4*L);log(`⬆ <b>¡Nivel ${L}!</b> Llegan casos más complejos y más rápido.`,'#f2c14e');snd(880,.2);snd(1175,.3)}else log(`Casos resueltos: ${resolved%5}/5 para el siguiente nivel.`,'#2ec4a6');save()}
+function die(p){if(p.st!='act')return;p.st='dead';(occ[p.r0]||[])[p.slot]=0;p.m.visible=false;deaths++;score-=150;if(open===p)closeP();log(`<b>✖ ${p.name} falleció</b> (${p.c.n}). −150 puntos. Muertes en la guardia: ${deaths}/5.`,'#e5586b');snd(200,.5,.08,'sawtooth');save();if(deaths>=5){state='menu';closeP();ov(`<h2>🏥 Fin de la guardia</h2><p>Hubo 5 fallecimientos. Puntos: <b>${score}</b> · Puesto: ${title()}</p><button class='go' onclick='begin()'>Nueva guardia</button><button onclick='rst()'>↺ Reiniciar progreso</button>`)}}
+setInterval(()=>{if(state!='play')return;const r=rankIdx();if(r>lastRank){log(`🎖 <b>¡Ascenso!</b> Ahora eres ${title()}.`,'#f2c14e');snd(880,.2);snd(1320,.3)}else if(r<lastRank)log(`⬇ Descenso de puesto: ${title()}.`,'#e5586b');lastRank=r},500);
+function start(){$('ov').hidden=true;S.remove(dyn);dyn=new THREE.Group();S.add(dyn);P=[];N=[];closeP();$('log').innerHTML='';H.length=0;unread=0;occ={};BD={};NS={};MM={};
+TOT=1e9;SP=0;deaths=0;L=Math.min(12,1+Math.floor(resolved/5));gap=Math.max(14,58-4*L);nextT=gap;
+const cs=person(0x4a90d9,{cap:0xffffff,pants:0x3a78bf});cs.position.set(-6,0,0);dyn.add(cs);N.push({m:cs,x:-6,z:0,pf:NP[3],t:0,co:1});
+player.position.set(0,0,0);T=0;tleft=1e9;state='play';skinP();log(`<b>Guardia iniciada — ${title()}.</b> Los casos llegarán sin parar: prioriza por gravedad.`,'#2ec4a6');spawn();spawn()}
+skinP();
+addEventListener('resize',rs);rs();menu();requestAnimationFrame(loop);
+</script></body></html>
